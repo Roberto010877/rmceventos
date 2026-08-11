@@ -13,6 +13,7 @@ const ContactosPage = lazy(() => import('./pages/ContactosPage'));
 const ServiciosPage = lazy(() => import('./pages/ServiciosPage'));
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage'));
 const AuditoriaPage = lazy(() => import('./pages/AuditoriaPage'));
+const ConfiguracionPage = lazy(() => import('./pages/ConfiguracionPage'));
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
               <Route path="servicios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ServiciosPage /></ProtectedRoute>} />
               <Route path="usuarios" element={<ProtectedRoute requiredRole={['superadmin']}><UsuariosPage /></ProtectedRoute>} />
               <Route path="auditoria" element={<ProtectedRoute requiredRole={['superadmin']}><AuditoriaPage /></ProtectedRoute>} />
+              <Route path="configuracion" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ConfiguracionPage /></ProtectedRoute>} />
             </Route>
             
             <Route path="*" element={<Navigate to="/" replace />} />

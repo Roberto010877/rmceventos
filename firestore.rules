@@ -32,6 +32,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── Colección: configuracion ──
+    // Lectura pública (la landing necesita leer teléfono, email, redes)
+    // Escritura solo admin+
+    match /configuracion/{docId} {
+      allow read: if true;
+      allow write: if esAdmin();
+    }
+
     // ── Colección: fotos ──
     // Lectura pública solo si están listas para mostrar
     // Escritura: editor+ puede crear/editar, admin+ puede borrar

@@ -11,6 +11,7 @@ import {
   Wrench, 
   Users, 
   Shield, 
+  Settings,
   LogOut, 
   Sun, 
   Moon,
@@ -55,6 +56,7 @@ const AdminLayout: React.FC = () => {
     { name: 'Servicios', path: '/servicios', icon: Wrench, roles: ['admin', 'superadmin'], bottomNav: false },
     { name: 'Usuarios', path: '/usuarios', icon: Users, roles: ['superadmin'], bottomNav: false },
     { name: 'Auditoría', path: '/auditoria', icon: Shield, roles: ['superadmin'], bottomNav: false },
+    { name: 'Configuración', path: '/configuracion', icon: Settings, roles: ['admin', 'superadmin'], bottomNav: false },
   ];
 
   const allowedNavItems = navItems.filter(item => 
