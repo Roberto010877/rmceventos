@@ -1,0 +1,14 @@
+{
+  "name": "@rmc-eventos/shared",
+  "version": "1.0.0",
+  "description": "Tipos y modelos compartidos para RMC Eventos",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "private": true,
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

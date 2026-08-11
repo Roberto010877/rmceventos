@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "rmc-eventos-bo"
+  },
+  "targets": {
+    "rmc-eventos-bo": {
+      "hosting": {
+        "landing": [
+          "rmc-eventos-bo"
+        ],
+        "admin": [
+          "rmc-eventos-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

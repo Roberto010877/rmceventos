@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+.npm
+
+# Build
+dist/
+lib/
+*.tsbuildinfo
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
+firestore-debug.log
+storage-debug.log
+database-debug.log
+pubsub-debug.log
+
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Tests
+coverage/

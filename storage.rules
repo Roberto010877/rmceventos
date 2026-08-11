@@ -1,0 +1,26 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Funciones auxiliares (para uso futuro)
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    // Validación de imagen (solo como documentación ya que la escritura desde el cliente está denegada)
+    // function esImagenValida() {
+    //   return request.resource.contentType.matches('image/.*') 
+    //          && request.resource.size < 5 * 1024 * 1024; // Máximo 5MB
+    // }
+
+    match /{allPaths=**} {
+      // Lectura pública para cualquier archivo (generalmente imágenes procesadas)
+      allow read: if true;
+      
+      // Escritura completamente denegada desde los clientes.
+      // Las subidas de archivos deben gestionarse mediante el backend o funciones (Admin SDK).
+      allow write: if false;
+    }
+  }
+}

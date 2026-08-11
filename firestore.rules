@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funciones auxiliares para verificar autenticación y roles (para uso futuro)
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    function esAdmin() {
+      return estaAutenticado() && 
+        (request.auth.token.rol == 'admin' || request.auth.token.rol == 'superadmin');
+    }
+
+    // Regla base: por defecto todo está denegado. 
+    // Las escrituras se realizan SÓLO mediante el Admin SDK (Cloud Functions)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Colección fotos: lectura pública solo si están listas para mostrar
+    match /fotos/{fotoId} {
+      allow read: if resource.data.estadoProcesamiento == 'listo';
+      allow write: if false; // Escritura denegada para clientes
+    }
+
+    // Colección servicios: lectura pública de todos los servicios
+    match /servicios/{servicioId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Colección testimonios: lectura pública solo si están aprobados
+    match /testimonios/{testimonioId} {
+      allow read: if resource.data.aprobado == true;
+      allow write: if false;
+    }
+    
+    // El resto de las colecciones (eventos, usuarios, contactos, auditoria) 
+    // heredan la regla base (deny all) y solo son accesibles desde el backend
+  }
+}
