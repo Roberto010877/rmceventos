@@ -8,6 +8,12 @@
 import express from 'express';
 import cors from 'cors';
 import { healthRouter } from './health';
+import fotosRouter from './fotos';
+import serviciosRouter from './servicios';
+import eventosRouter from './eventos';
+import testimoniosRouter from './testimonios';
+import contactoRouter from './contacto';
+import usuariosRouter from './usuarios';
 
 const app = express();
 
@@ -18,8 +24,9 @@ const allowedOrigins = [
   'http://localhost:5173',   // Vite dev server (landing)
   'http://localhost:5174',   // Vite dev server (admin)
   'http://localhost:5000',   // Firebase Hosting emulator
-  // En producción se agregarán:
+  // En producción se agregarán cuando se tenga dominio:
   // 'https://rmc-eventos-bo.web.app',
+  // 'https://rmc-eventos-admin.web.app',
   // 'https://rmceventos.com',
   // 'https://admin.rmceventos.com',
 ];
@@ -42,14 +49,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── Rutas API v1 ──
 app.use('/api/v1/health', healthRouter);
-
-// Las demás rutas se agregarán en la Fase 1:
-// app.use('/api/v1/fotos', fotosRouter);
-// app.use('/api/v1/servicios', serviciosRouter);
-// app.use('/api/v1/eventos', eventosRouter);
-// app.use('/api/v1/testimonios', testimoniosRouter);
-// app.use('/api/v1/contacto', contactoRouter);
-// app.use('/api/v1/usuarios', usuariosRouter);
+app.use('/api/v1/fotos', fotosRouter);
+app.use('/api/v1/servicios', serviciosRouter);
+app.use('/api/v1/eventos', eventosRouter);
+app.use('/api/v1/testimonios', testimoniosRouter);
+app.use('/api/v1/contacto', contactoRouter);
+app.use('/api/v1/usuarios', usuariosRouter);
 
 // ── Manejo de errores global ──
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
