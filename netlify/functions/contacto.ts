@@ -102,7 +102,7 @@ const contactoCreateSchema = z.object({
 });
 
 export const handler: Handler = async (event) => {
-  const requestOrigin = event.headers.origin;
+  const requestOrigin = event.headers.origin || event.headers.Origin || event.headers.ORIGIN;
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET,OPTIONS,POST',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
