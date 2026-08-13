@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 /**
- * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (100% Gratis - Sin Esperas)
+ * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V2 - Ultra Robusto)
  */
 
 // ── Lista de Orígenes Permitidos para CORS ──
@@ -38,11 +38,11 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// ── Inicialización Singleton de Firebase Admin SDK ──
+// ── Inicialización Singleton de Firebase Admin SDK con Normalización de Clave ──
 function getFirebaseAdmin() {
   if (!admin.apps.length) {
     const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCP_PROJECT || 'rmc-eventos-bo';
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim();
     const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
 
     if (!clientEmail || !privateKeyRaw) {
@@ -51,7 +51,12 @@ function getFirebaseAdmin() {
       );
     }
 
-    const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+    // Sanitización ultra-robusta de la clave privada (elimina comillas externas y procesa saltos de línea \n)
+    let privateKey = privateKeyRaw.trim();
+    if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
+      privateKey = privateKey.substring(1, privateKey.length - 1);
+    }
+    privateKey = privateKey.replace(/\\n/g, '\n');
 
     admin.initializeApp({
       credential: admin.credential.cert({
@@ -166,7 +171,8 @@ export const handler: Handler = async (event) => {
     try {
       adminSdk = getFirebaseAdmin();
     } catch (configErr: any) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: configErr.message }) };
+      console.error('❌ Config Error Firebase Admin:', configErr?.message);
+      return { statusCode: 500, headers, body: JSON.stringify({ error: `Error de configuración: ${configErr?.message}` }) };
     }
 
     const db = adminSdk.firestore();
@@ -187,8 +193,16 @@ export const handler: Handler = async (event) => {
 
     try {
       await db.collection('contactos').doc(generatedId).set(nuevoContacto);
+      console.log('✅ [Firestore Netlify Success]: Documento creado con ID:', generatedId);
     } catch (dbErr: any) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: 'Error guardando en Firestore' }) };
+      console.error('❌ [Firestore Error]:', dbErr?.message || dbErr);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({
+          error: `Error guardando en Firestore: ${dbErr?.message || 'Fallo de autenticación de Firestore'}`,
+        }),
+      };
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -250,6 +264,6 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ success: true, id: generatedId, message: 'Solicitud recibida correctamente' }),
     };
   } catch (error: any) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Error interno' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: `Error interno: ${error?.message || error}` }) };
   }
 };
