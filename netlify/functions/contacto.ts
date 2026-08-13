@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 /**
- * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V3 - Clave Privada Bulletproof)
+ * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V4 - Diagnóstico)
  */
 
 // ── Lista de Orígenes Permitidos para CORS ──
@@ -42,20 +42,20 @@ function checkRateLimit(ip: string): boolean {
 function cleanPrivateKey(rawKey: string): string {
   let key = rawKey.trim();
   
-  // 1. Quitar comillas envueltas si existen
+  // Quitar comillas envueltas si existen
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
     key = key.substring(1, key.length - 1);
   }
 
-  // 2. Normalizar retornos de carro de Windows (\r\n -> \n)
+  // Normalizar retornos de carro de Windows (\r\n -> \n)
   key = key.replace(/\r\n/g, '\n');
 
-  // 3. Convertir saltos de línea literales '\n' a saltos de línea reales si vienen escapados
+  // Convertir saltos de línea literales '\n' a saltos de línea reales
   if (key.includes('\\n')) {
     key = key.replace(/\\n/g, '\n');
   }
 
-  // 4. Limpiar saltos de línea múltiples consecutivos
+  // Limpiar saltos de línea múltiples consecutivos
   key = key.replace(/\n+/g, '\n');
 
   return key;
@@ -209,6 +209,9 @@ export const handler: Handler = async (event) => {
       notificacion: { estado: 'pendiente', intentos: 1, idempotencyKey: generatedId },
     };
 
+    const currentClientEmail = process.env.FIREBASE_CLIENT_EMAIL || 'NO_SET';
+    const currentProjectId = process.env.FIREBASE_PROJECT_ID || 'rmc-eventos-bo';
+
     try {
       await db.collection('contactos').doc(generatedId).set(nuevoContacto);
       console.log('✅ [Firestore Netlify Success]: Documento creado con ID:', generatedId);
@@ -218,7 +221,7 @@ export const handler: Handler = async (event) => {
         statusCode: 500,
         headers,
         body: JSON.stringify({
-          error: `Error guardando en Firestore: ${dbErr?.message || 'Fallo de autenticación de Firestore'}`,
+          error: `Error Auth Firestore (Project: ${currentProjectId}, Account: ${currentClientEmail}): ${dbErr?.message || 'Fallo de autenticación'}`,
         }),
       };
     }
