@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 /**
- * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V2 - Ultra Robusto)
+ * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V3 - Clave Privada Bulletproof)
  */
 
 // ── Lista de Orígenes Permitidos para CORS ──
@@ -38,7 +38,30 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// ── Inicialización Singleton de Firebase Admin SDK con Normalización de Clave ──
+// ── Limpiador y Normalizador de Clave Privada PEM de RSA ──
+function cleanPrivateKey(rawKey: string): string {
+  let key = rawKey.trim();
+  
+  // 1. Quitar comillas envueltas si existen
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.substring(1, key.length - 1);
+  }
+
+  // 2. Normalizar retornos de carro de Windows (\r\n -> \n)
+  key = key.replace(/\r\n/g, '\n');
+
+  // 3. Convertir saltos de línea literales '\n' a saltos de línea reales si vienen escapados
+  if (key.includes('\\n')) {
+    key = key.replace(/\\n/g, '\n');
+  }
+
+  // 4. Limpiar saltos de línea múltiples consecutivos
+  key = key.replace(/\n+/g, '\n');
+
+  return key;
+}
+
+// ── Inicialización Singleton de Firebase Admin SDK ──
 function getFirebaseAdmin() {
   if (!admin.apps.length) {
     const projectId = process.env.FIREBASE_PROJECT_ID || process.env.GCP_PROJECT || 'rmc-eventos-bo';
@@ -51,12 +74,7 @@ function getFirebaseAdmin() {
       );
     }
 
-    // Sanitización ultra-robusta de la clave privada (elimina comillas externas y procesa saltos de línea \n)
-    let privateKey = privateKeyRaw.trim();
-    if ((privateKey.startsWith('"') && privateKey.endsWith('"')) || (privateKey.startsWith("'") && privateKey.endsWith("'"))) {
-      privateKey = privateKey.substring(1, privateKey.length - 1);
-    }
-    privateKey = privateKey.replace(/\\n/g, '\n');
+    const privateKey = cleanPrivateKey(privateKeyRaw);
 
     admin.initializeApp({
       credential: admin.credential.cert({
