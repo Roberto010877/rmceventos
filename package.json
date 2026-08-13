@@ -2,8 +2,9 @@
   "name": "rmc-eventos-root",
   "version": "1.0.0",
   "private": true,
-  "description": "RMC EVENTOS — Proyecto Raíz con Vercel Serverless Functions + Firebase Spark",
+  "description": "RMC EVENTOS — Serverless API (Compatible con Vercel y Netlify) + Firebase Spark",
   "dependencies": {
+    "@netlify/functions": "^3.0.0",
     "@vercel/node": "^5.1.10",
     "firebase-admin": "^13.4.0",
     "resend": "^4.5.1",
