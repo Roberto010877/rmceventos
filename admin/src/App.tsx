@@ -31,8 +31,8 @@ function App() {
               <Route index element={<DashboardPage />} />
               <Route path="fotos" element={<FotosPage />} />
               <Route path="eventos" element={<EventosPage />} />
-              <Route path="testimonios" element={<TestimoniosPage />} />
-              <Route path="contactos" element={<ContactosPage />} />
+              <Route path="testimonios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><TestimoniosPage /></ProtectedRoute>} />
+              <Route path="contactos" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ContactosPage /></ProtectedRoute>} />
               <Route path="servicios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ServiciosPage /></ProtectedRoute>} />
               <Route path="usuarios" element={<ProtectedRoute requiredRole={['superadmin']}><UsuariosPage /></ProtectedRoute>} />
               <Route path="auditoria" element={<ProtectedRoute requiredRole={['superadmin']}><AuditoriaPage /></ProtectedRoute>} />

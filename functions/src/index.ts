@@ -15,6 +15,4 @@ import { app } from './api/app';
 export const api = functions.https.onRequest(app);
 
 // ── Triggers ──
-// Se exportarán aquí cuando se implementen en Fase 1
-// export { onImageUpload } from './triggers/imageProcessing';
-// export { onContactCreated } from './triggers/emailNotification';
+export { onContactCreated } from './triggers/emailNotification';

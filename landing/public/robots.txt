@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rmceventos.com/sitemap.xml

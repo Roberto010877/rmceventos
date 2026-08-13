@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { db, storage } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { logAudit } from '../lib/audit';
 import { authenticate, requireRole, validate, sanitizeBody } from '../middleware';
 
@@ -97,32 +97,6 @@ router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next)
       res.status(404).json({ error: 'Foto no encontrada' });
       return;
     }
-    
-    const data = doc.data();
-    
-    // Función auxiliar para extraer ruta del Storage desde URL de Firebase
-    const deleteFromStorage = async (url: string) => {
-      if (!url) return;
-      try {
-        // Asumiendo formato GS url o URL de descarga para parsear
-        // Por simplificación, asume que urlWebp, url, urlThumbnail almacenan el path de Firebase Storage.
-        // Si almacenan el path relativo, podemos usar bucket.file().delete()
-        // Aquí requerimos la ruta del archivo.
-        const decodedUrl = decodeURIComponent(url);
-        const match = decodedUrl.match(/\/o\/([^?]+)/);
-        if (match && match[1]) {
-          const filePath = match[1];
-          await storage.bucket().file(filePath).delete();
-        }
-      } catch (e) {
-        console.error('Error al borrar archivo de Storage:', e);
-      }
-    };
-    
-    await deleteFromStorage(data?.url);
-    await deleteFromStorage(data?.urlWebp);
-    await deleteFromStorage(data?.urlThumbnail);
-    
     await docRef.delete();
     
     await logAudit(userId, userEmail, 'foto.eliminar', id);

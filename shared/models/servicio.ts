@@ -8,6 +8,8 @@ export interface Servicio {
   nombre: string;
   /** Descripción detallada del servicio */
   descripcion: string;
+  /** URL de la imagen ilustrativa del servicio */
+  imagenUrl?: string;
   /** Orden de visualización en la página */
   ordenVisualizacion: number;
 }

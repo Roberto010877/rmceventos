@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { DecodedIdToken } from 'firebase-admin/auth';
 
 /** Roles del sistema — debe coincidir con shared/models/usuario.ts */
@@ -25,7 +25,10 @@ export const authenticate = async (
   
   try {
     const decodedToken = await auth.verifyIdToken(token);
-    req.user = decodedToken as DecodedIdToken & { rol?: Rol };
+    const userDoc = await db.collection('usuarios').doc(decodedToken.uid).get();
+    const rol = userDoc.exists ? (userDoc.data()?.rol as Rol | undefined) : undefined;
+
+    req.user = { ...decodedToken, rol } as DecodedIdToken & { rol?: Rol };
     next();
   } catch (error) {
     console.error('Error al verificar el token:', error);

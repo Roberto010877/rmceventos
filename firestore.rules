@@ -78,9 +78,9 @@ service cloud.firestore {
     }
 
     // ── Colección: contactos ──
-    // Creación pública (formulario), lectura y gestión: admin+
+    // La creación pública debe pasar por Cloud Functions/API. Lectura y gestión: admin+
     match /contactos/{contactoId} {
-      allow create: if true;  // Público: formulario de contacto
+      allow create: if false;
       allow read, update: if esAdmin();
       allow delete: if esAdmin();
     }

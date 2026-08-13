@@ -20,7 +20,7 @@ rmc-eventos/
 ### Prerrequisitos
 - Node.js ≥ 22
 - npm ≥ 10
-- Java 17+ (para emuladores Firebase)
+- Java 21+ (para emuladores Firebase con Firebase CLI actual)
 - Firebase CLI (`npm install -g firebase-tools` o `npx firebase-tools`)
 
 ### Instalación
@@ -48,8 +48,14 @@ Copiar `.env.example` y configurar las variables:
 cp .env.example landing/.env.local
 cp .env.example admin/.env.local
 
-# Para Cloud Functions (usar firebase functions:config o .env en functions/)
+# Para Cloud Functions
+cp functions/.env.example functions/.env
 ```
+
+Variables criticas para Functions:
+
+- `RESEND_API_KEY`: API key de Resend para enviar notificaciones de contacto.
+- `NOTIFICATION_EMAIL`: correo destino de las solicitudes.
 
 ### Desarrollo local con emuladores
 
@@ -90,7 +96,7 @@ Abre `http://localhost:4000` para ver los emuladores de Firebase.
 ## 📍 Información del negocio
 
 - **Ubicación**: Santa Cruz, Bolivia
-- **Email**: rmceventos@gmail.com
+- **Email**: rmc.eventos2631@gmail.com
 - **WhatsApp**: +591 72601952
 
 ## 🔗 URLs
@@ -107,3 +113,23 @@ Abre `http://localhost:4000` para ver los emuladores de Firebase.
 
 - **Project ID**: `rmc-eventos-bo`
 - **Consola**: https://console.firebase.google.com/project/rmc-eventos-bo/overview
+
+## Salida a produccion
+
+Checklist minimo antes de publicar:
+
+```bash
+cd landing && npm run build
+cd ../admin && npm run build
+cd ../functions && npm run build
+cd ..
+npx firebase-tools deploy --only firestore:rules,functions,hosting
+```
+
+Despues del deploy:
+
+- Probar `https://rmceventos.com/robots.txt`.
+- Probar `https://rmceventos.com/sitemap.xml`.
+- Probar envio del formulario de contacto.
+- Probar carga de imagen hero desde el panel admin.
+- Registrar el dominio en Google Search Console y enviar el sitemap.

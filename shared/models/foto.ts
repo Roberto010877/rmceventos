@@ -25,6 +25,10 @@ export interface Foto {
   fechaSubida: FirebaseTimestamp;
   /** Indica si la foto está destacada en la galería */
   destacada: boolean;
+  /** Indica si la foto es visible públicamente en la landing page (por defecto true) */
+  visible: boolean;
+  /** Indica si la foto se muestra en el carrusel de la sección Nosotros */
+  mostrarEnNosotros?: boolean;
   /** ID del usuario que subió la foto */
   subidoPor: string;
   /** Estado del procesamiento de la imagen */

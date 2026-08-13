@@ -10,6 +10,20 @@
 
 import { db } from '../lib/firebase';
 
+const generalConfig = {
+  nombreNegocio: 'RMC EVENTOS',
+  slogan: 'Decoración, mobiliario y banquetería para eventos únicos e irrepetibles.',
+  whatsappNumero: '59172601952',
+  telefonoMostrar: '+591 72601952',
+  correoContacto: 'rmc.eventos2631@gmail.com',
+  ciudad: 'Santa Cruz, Bolivia',
+  direccion: 'Santa Cruz de la Sierra',
+  instagramUrl: 'https://instagram.com/rmceventos',
+  facebookUrl: 'https://facebook.com/rmceventos',
+  tiktokUrl: 'https://tiktok.com/@rmceventos',
+  horarioAtencion: 'Lunes a Sábado: 9:00 - 18:00',
+};
+
 const servicios = [
   {
     nombre: 'Decoración de Eventos',
@@ -60,6 +74,11 @@ const testimonios = [
 
 async function seed() {
   console.log('🌱 Iniciando carga de datos iniciales...\n');
+
+  // Config General (coincide con Admin Panel)
+  console.log('⚙️ Cargando configuración de general (configuracion/general)...');
+  await db.collection('configuracion').doc('general').set(generalConfig);
+  console.log('  ✅ Configuración guardada exitosamente.\n');
 
   // Servicios
   console.log('📋 Cargando servicios...');

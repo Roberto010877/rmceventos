@@ -24,11 +24,12 @@ const allowedOrigins = [
   'http://localhost:5173',   // Vite dev server (landing)
   'http://localhost:5174',   // Vite dev server (admin)
   'http://localhost:5000',   // Firebase Hosting emulator
-  // En producción se agregarán cuando se tenga dominio:
-  // 'https://rmc-eventos-bo.web.app',
-  // 'https://rmc-eventos-admin.web.app',
-  // 'https://rmceventos.com',
-  // 'https://admin.rmceventos.com',
+  // Dominios de produccion
+  'https://rmc-eventos-bo.web.app',
+  'https://rmc-eventos-admin.web.app',
+  'https://rmceventos.com',
+  'https://www.rmceventos.com',
+  'https://admin.rmceventos.com',
 ];
 
 app.use(cors({
