@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 /**
- * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V4 - Diagnóstico)
+ * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V5 - Redeploy Trigger)
  */
 
 // ── Lista de Orígenes Permitidos para CORS ──
