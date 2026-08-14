@@ -236,8 +236,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : null;
         const mensajeHtml = escapeHtml(mensajeLimpio).replace(/\n/g, '<br>');
 
+        const senderEmail = process.env.RESEND_FROM_EMAIL || 'RMC Eventos <onboarding@resend.dev>';
         await resend.emails.send({
-          from: 'RMC Eventos <no-reply@rmceventos.com>',
+          from: senderEmail,
           to: recipientEmail,
           subject: `🎉 Nuevo pedido de cotización — ${escapeHtml(nombreLimpio)} (${tipoEventoLabel})`,
           headers: { 'idempotency-key': generatedId },

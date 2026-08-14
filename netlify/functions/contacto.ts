@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 /**
- * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V5 - Redeploy Trigger)
+ * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V5 - Resend Onboarding Fix)
  */
 
 // ── Lista de Orígenes Permitidos para CORS ──
@@ -42,20 +42,16 @@ function checkRateLimit(ip: string): boolean {
 function cleanPrivateKey(rawKey: string): string {
   let key = rawKey.trim();
   
-  // Quitar comillas envueltas si existen
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
     key = key.substring(1, key.length - 1);
   }
 
-  // Normalizar retornos de carro de Windows (\r\n -> \n)
   key = key.replace(/\r\n/g, '\n');
 
-  // Convertir saltos de línea literales '\n' a saltos de línea reales
   if (key.includes('\\n')) {
     key = key.replace(/\\n/g, '\n');
   }
 
-  // Limpiar saltos de línea múltiples consecutivos
   key = key.replace(/\n+/g, '\n');
 
   return key;
@@ -231,6 +227,7 @@ export const handler: Handler = async (event) => {
       try {
         const resend = new Resend(resendApiKey);
         const recipientEmail = process.env.NOTIFICATION_EMAIL || 'rmc.eventos2631@gmail.com';
+        const senderEmail = process.env.RESEND_FROM_EMAIL || 'RMC Eventos <onboarding@resend.dev>';
         const tipoEventoLabel = TIPO_EVENTO_LABELS[tipoEventoNormalizado] || 'Consulta General';
         const telefonoLimpio = telefono.trim().replace(/\D/g, '');
         const whatsappUrl = telefonoLimpio
@@ -238,8 +235,10 @@ export const handler: Handler = async (event) => {
           : null;
         const mensajeHtml = escapeHtml(mensajeLimpio).replace(/\n/g, '<br>');
 
-        await resend.emails.send({
-          from: 'RMC Eventos <no-reply@rmceventos.com>',
+        console.log(`📧 [Resend] Enviando correo desde '${senderEmail}' a '${recipientEmail}'...`);
+
+        const resendResult = await resend.emails.send({
+          from: senderEmail,
           to: recipientEmail,
           subject: `🎉 Nuevo pedido de cotización — ${escapeHtml(nombreLimpio)} (${tipoEventoLabel})`,
           headers: { 'idempotency-key': generatedId },
@@ -267,11 +266,21 @@ export const handler: Handler = async (event) => {
           `,
         });
 
-        await db.collection('contactos').doc(generatedId).update({
-          'notificacion.estado': 'enviada',
-          'notificacion.enviadoAt': adminSdk.firestore.FieldValue.serverTimestamp(),
-        }).catch(() => {});
+        if (resendResult.error) {
+          console.error('❌ Resend API Error:', resendResult.error);
+          await db.collection('contactos').doc(generatedId).update({
+            'notificacion.estado': 'error',
+            'notificacion.error': resendResult.error.message || JSON.stringify(resendResult.error),
+          }).catch(() => {});
+        } else {
+          console.log('✅ Resend Email Enviado Exitosamente:', resendResult.data);
+          await db.collection('contactos').doc(generatedId).update({
+            'notificacion.estado': 'enviada',
+            'notificacion.enviadoAt': adminSdk.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
+        }
       } catch (emailErr: any) {
+        console.error('❌ Exception en envío Resend:', emailErr?.message || emailErr);
         await db.collection('contactos').doc(generatedId).update({
           'notificacion.estado': 'error',
           'notificacion.error': emailErr?.message || 'Error en Resend',
