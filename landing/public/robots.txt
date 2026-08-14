@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://rmceventos.com/sitemap.xml
+Sitemap: https://rmc-eventos-bo.web.app/sitemap.xml
