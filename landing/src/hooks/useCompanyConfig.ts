@@ -24,9 +24,9 @@ export const defaultConfig: CompanyConfig = {
   nombreNegocio: 'RMC EVENTOS',
   slogan: 'Hacemos de tu evento algo inolvidable',
   email: 'rmc.eventos2631@gmail.com',
-  telefono: '+591 72601952',
-  whatsappNumber: '59172601952',
-  whatsappUrl: 'https://wa.me/59172601952?text=Hola,%20me%20interesa%20cotizar%20un%20evento',
+  telefono: '+591 75674494',
+  whatsappNumber: '59175674494',
+  whatsappUrl: 'https://wa.me/59175674494?text=Hola,%20me%20interesa%20cotizar%20un%20evento',
   ubicacion: 'Santa Cruz, Bolivia',
   ciudad: 'Santa Cruz, Bolivia',
   direccion: '',
@@ -59,11 +59,16 @@ export function useCompanyConfig(): CompanyConfig {
               ? `${data.direccion}, ${data.ciudad}`
               : data.ciudad || data.direccion || defaultConfig.ubicacion;
 
+            // Determinar teléfono a mostrar prioritario
+            const telefonoCalculado = data.telefonoMostrar && data.telefonoMostrar.trim() !== ''
+              ? data.telefonoMostrar.trim()
+              : (cleanWa ? (cleanWa.startsWith('591') ? `+${cleanWa.slice(0, 3)} ${cleanWa.slice(3)}` : `+${cleanWa}`) : defaultConfig.telefono);
+
             setConfig({
               nombreNegocio: data.nombreNegocio || defaultConfig.nombreNegocio,
               slogan: data.slogan || defaultConfig.slogan,
               email: data.correoContacto || defaultConfig.email,
-              telefono: data.telefonoMostrar || (data.whatsappNumero ? `+${data.whatsappNumero}` : defaultConfig.telefono),
+              telefono: telefonoCalculado,
               whatsappNumber: cleanWa || defaultConfig.whatsappNumber,
               whatsappUrl: waUrl,
               ubicacion: ubicacionTexto,

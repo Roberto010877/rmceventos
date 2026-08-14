@@ -1,6 +1,9 @@
 import { MessageCircle } from 'lucide-react';
+import { useCompanyConfig } from '../hooks/useCompanyConfig';
 
 const WhatsAppButton = () => {
+  const config = useCompanyConfig();
+
   return (
     <div className="fixed bottom-6 right-6 z-50 group">
       {/* Tooltip */}
@@ -11,7 +14,7 @@ const WhatsAppButton = () => {
       </div>
 
       <a
-        href="https://wa.me/59172601952?text=Hola,%20me%20gustaría%20cotizar%20un%20evento%20con%20RMC%20Eventos."
+        href={config.whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
         className="w-16 h-16 bg-[#25D366] rounded-full flex items-center justify-center text-white shadow-[0_0_20px_rgba(37,211,102,0.4)] hover:shadow-[0_0_30px_rgba(37,211,102,0.6)] hover:-translate-y-1 transition-all duration-300 relative"
