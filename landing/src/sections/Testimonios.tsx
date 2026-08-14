@@ -129,13 +129,6 @@ const Testimonios = () => {
           </div>
         </div>
 
-        {/* Note Footer */}
-        <div className="text-center mt-6">
-          <span className="text-[0.8rem] text-[#888888] italic">
-            * En producción, esta sección se alimenta dinámicamente con testimonios aprobados desde el panel administrativo.
-          </span>
-        </div>
-
       </div>
     </section>
   );
