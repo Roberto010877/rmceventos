@@ -15,7 +15,9 @@ import {
   LogOut, 
   Sun, 
   Moon,
-  Menu
+  Menu,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 
 const AdminLayout: React.FC = () => {
@@ -104,20 +106,35 @@ const AdminLayout: React.FC = () => {
           })}
         </nav>
 
+        {/* Acciones de pie de Sidebar */}
         <div className="p-4 border-t border-[var(--border-color)] space-y-2">
+          {/* Botón directo a la Landing Page pública */}
+          <a
+            href="https://rmc-eventos-bo.web.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-between w-full px-4 py-2.5 rounded-lg bg-dorado/10 hover:bg-dorado/20 text-dorado font-semibold text-xs transition-colors border border-dorado/30"
+          >
+            <div className="flex items-center space-x-2">
+              <Globe size={16} />
+              <span>Ver Sitio Web</span>
+            </div>
+            <ExternalLink size={14} />
+          </a>
+
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="flex w-full items-center space-x-3 px-4 py-3 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-primary)] transition-colors"
+            className="flex w-full items-center space-x-3 px-4 py-2.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-primary)] text-xs transition-colors"
           >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             <span>{isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}</span>
           </button>
           
           <button 
             onClick={handleLogout}
-            className="flex w-full items-center space-x-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
+            className="flex w-full items-center space-x-3 px-4 py-2.5 rounded-lg text-red-500 hover:bg-red-500/10 text-xs transition-colors"
           >
-            <LogOut size={20} />
+            <LogOut size={18} />
             <span>Cerrar Sesión</span>
           </button>
         </div>
@@ -127,7 +144,17 @@ const AdminLayout: React.FC = () => {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative pb-16 md:pb-0">
         <header className="md:hidden bg-[var(--bg-secondary)] border-b border-[var(--border-color)] p-4 flex justify-between items-center z-10 shadow-sm">
           <h1 className="text-lg font-poppins font-bold text-dorado">RMC EVENTOS</h1>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <a
+              href="https://rmc-eventos-bo.web.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-dorado/15 text-dorado font-bold text-xs border border-dorado/40"
+              title="Abrir Landing Page pública"
+            >
+              <Globe size={14} />
+              <span>Ver Web</span>
+            </a>
             <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-[var(--text-secondary)]">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
@@ -140,15 +167,29 @@ const AdminLayout: React.FC = () => {
         {/* Mobile menu dropdown */}
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-[61px] left-0 right-0 bottom-16 bg-[var(--bg-secondary)] z-20 flex flex-col p-4 shadow-lg overflow-y-auto">
-            <div className="flex items-center space-x-3 mb-6 p-2 bg-[var(--bg-primary)] rounded-lg">
+            <div className="flex items-center space-x-3 mb-4 p-2 bg-[var(--bg-primary)] rounded-lg">
               <div className="w-10 h-10 rounded-full bg-dorado flex items-center justify-center text-blanco font-bold">
-            {userData?.nombre?.charAt(0).toUpperCase() || 'U'}
+                {userData?.nombre?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">{userData?.nombre}</p>
                 <p className="text-xs text-[var(--text-secondary)] capitalize">{userData?.rol}</p>
               </div>
             </div>
+
+            <a
+              href="https://rmc-eventos-bo.web.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between w-full px-4 py-3 mb-4 rounded-lg bg-dorado text-white font-bold text-sm shadow-md"
+            >
+              <div className="flex items-center space-x-2">
+                <Globe size={18} />
+                <span>Abrir Sitio Web Público</span>
+              </div>
+              <ExternalLink size={16} />
+            </a>
+
             <nav className="flex-1 space-y-2">
               {allowedNavItems.map((item) => {
                 const Icon = item.icon;
