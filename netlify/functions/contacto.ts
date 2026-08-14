@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { Resend } from 'resend';
 
 /**
- * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V5 - Resend Onboarding Fix)
+ * RMC EVENTOS — Netlify Serverless Function para Formulario de Contacto (V6 - Resend Diagnostic)
  */
 
 // ── Lista de Orígenes Permitidos para CORS ──
@@ -222,12 +222,15 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const resendApiKey = process.env.RESEND_API_KEY;
+    // ── Proceso de Notificación por Email vía Resend ──
+    const resendApiKey = process.env.RESEND_API_KEY?.trim();
+    let resendStatusMessage = 'Sin intentar';
+
     if (resendApiKey) {
       try {
         const resend = new Resend(resendApiKey);
-        const recipientEmail = process.env.NOTIFICATION_EMAIL || 'rmc.eventos2631@gmail.com';
-        const senderEmail = process.env.RESEND_FROM_EMAIL || 'RMC Eventos <onboarding@resend.dev>';
+        const recipientEmail = (process.env.NOTIFICATION_EMAIL || 'rmc.eventos2631@gmail.com').trim();
+        const senderEmail = (process.env.RESEND_FROM_EMAIL || 'RMC Eventos <onboarding@resend.dev>').trim();
         const tipoEventoLabel = TIPO_EVENTO_LABELS[tipoEventoNormalizado] || 'Consulta General';
         const telefonoLimpio = telefono.trim().replace(/\D/g, '');
         const whatsappUrl = telefonoLimpio
@@ -235,7 +238,7 @@ export const handler: Handler = async (event) => {
           : null;
         const mensajeHtml = escapeHtml(mensajeLimpio).replace(/\n/g, '<br>');
 
-        console.log(`📧 [Resend] Enviando correo desde '${senderEmail}' a '${recipientEmail}'...`);
+        console.log(`📧 [Resend Attempt] Key: ${resendApiKey.substring(0, 5)}..., From: '${senderEmail}', To: '${recipientEmail}'`);
 
         const resendResult = await resend.emails.send({
           from: senderEmail,
@@ -267,31 +270,44 @@ export const handler: Handler = async (event) => {
         });
 
         if (resendResult.error) {
-          console.error('❌ Resend API Error:', resendResult.error);
+          const resendErrDetail = resendResult.error.message || JSON.stringify(resendResult.error);
+          console.error('❌ Resend API Error:', resendErrDetail);
+          resendStatusMessage = `Error Resend: ${resendErrDetail}`;
           await db.collection('contactos').doc(generatedId).update({
             'notificacion.estado': 'error',
-            'notificacion.error': resendResult.error.message || JSON.stringify(resendResult.error),
+            'notificacion.error': resendErrDetail,
           }).catch(() => {});
         } else {
           console.log('✅ Resend Email Enviado Exitosamente:', resendResult.data);
+          resendStatusMessage = `Enviado con ID: ${resendResult.data?.id}`;
           await db.collection('contactos').doc(generatedId).update({
             'notificacion.estado': 'enviada',
             'notificacion.enviadoAt': adminSdk.firestore.FieldValue.serverTimestamp(),
           }).catch(() => {});
         }
       } catch (emailErr: any) {
-        console.error('❌ Exception en envío Resend:', emailErr?.message || emailErr);
+        const excDetail = emailErr?.message || String(emailErr);
+        console.error('❌ Exception en envío Resend:', excDetail);
+        resendStatusMessage = `Excepción: ${excDetail}`;
         await db.collection('contactos').doc(generatedId).update({
           'notificacion.estado': 'error',
-          'notificacion.error': emailErr?.message || 'Error en Resend',
+          'notificacion.error': excDetail,
         }).catch(() => {});
       }
+    } else {
+      resendStatusMessage = 'RESEND_API_KEY no configurada en las variables de entorno';
+      console.warn('⚠️ RESEND_API_KEY no configurada.');
     }
 
     return {
       statusCode: 201,
       headers,
-      body: JSON.stringify({ success: true, id: generatedId, message: 'Solicitud recibida correctamente' }),
+      body: JSON.stringify({
+        success: true,
+        id: generatedId,
+        message: 'Solicitud recibida correctamente',
+        debugResend: resendStatusMessage
+      }),
     };
   } catch (error: any) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: `Error interno: ${error?.message || error}` }) };
