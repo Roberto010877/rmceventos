@@ -12,12 +12,12 @@ export default function QuickActions({ permissions }: QuickActionsProps) {
     { to: '/eventos', label: 'Crear evento', icon: CalendarPlus, show: permissions.canManageContent },
     { to: '/contactos', label: 'Ver mensajes', icon: Mail, show: permissions.canReadContacts },
     { to: '/testimonios', label: 'Moderar', icon: MessageSquare, show: permissions.canReadTestimonials },
-    { to: '/configuracion', label: 'Configuracion', icon: Settings, show: permissions.canReadContacts },
+    { to: '/configuracion', label: 'Configuración', icon: Settings, show: permissions.canReadContacts },
   ];
 
   return (
     <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] p-5 shadow-sm">
-      <h2 className="font-poppins text-lg font-bold text-[var(--text-primary)]">Acciones rapidas</h2>
+      <h2 className="font-poppins text-lg font-bold text-[var(--text-primary)]">Acciones rápidas</h2>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {actions
           .filter((action) => action.show)

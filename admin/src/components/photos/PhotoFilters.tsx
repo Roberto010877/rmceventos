@@ -16,9 +16,9 @@ export const PhotoFilters: React.FC<PhotoFiltersProps> = ({
     { id: 'decoracion', label: `Decoración (${counts.decoracion})` },
     { id: 'mobiliario', label: `Mobiliario (${counts.mobiliario})` },
     { id: 'banqueteria', label: `Banquetería (${counts.banqueteria})` },
-    { id: 'nosotros', label: `🖼️ En Nosotros (${counts.nosotros})` },
-    { id: 'destacadas', label: `★ Destacadas (${counts.destacadas})` },
-    { id: 'ocultas', label: `🙈 Ocultas (${counts.ocultas})` },
+    { id: 'nosotros', label: `En Nosotros (${counts.nosotros})` },
+    { id: 'destacadas', label: `Destacadas (${counts.destacadas})` },
+    { id: 'ocultas', label: `Ocultas (${counts.ocultas})` },
   ];
 
   return (

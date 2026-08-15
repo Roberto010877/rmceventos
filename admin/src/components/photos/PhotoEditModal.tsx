@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Edit3, X, Eye, EyeOff, LayoutGrid, Star, Loader2, Save } from 'lucide-react';
 import type { Foto } from '../../types/photo';
+import { useFeedback } from '../ui/feedback';
 
 interface PhotoEditModalProps {
   foto: Foto | null;
@@ -22,6 +23,7 @@ export const PhotoEditModal: React.FC<PhotoEditModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { toast } = useFeedback();
   const [editCategoria, setEditCategoria] = useState('decoracion');
   const [editDescripcion, setEditDescripcion] = useState('');
   const [editDestacada, setEditDestacada] = useState(false);
@@ -55,7 +57,7 @@ export const PhotoEditModal: React.FC<PhotoEditModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error al guardar edición:', error);
-      alert('Ocurrió un error al actualizar los datos de la foto.');
+      toast({ type: 'error', message: 'Ocurrió un error al actualizar los datos de la foto.' });
     } finally {
       setSavingEdit(false);
     }

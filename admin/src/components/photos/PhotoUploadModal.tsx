@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Layers, X, UploadCloud, Link as LinkIcon, Check, Loader2, CheckCircle2 } from 'lucide-react';
 import type { PendingFileItem } from '../../types/photo';
 import { compressImage } from '../../utils/compressImage';
+import { useFeedback } from '../ui/feedback';
 
 interface PhotoUploadModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   onClose,
   onSubmitBatch,
 }) => {
+  const { toast } = useFeedback();
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
   const [pendingItems, setPendingItems] = useState<PendingFileItem[]>([]);
   const [globalCategoria, setGlobalCategoria] = useState('decoracion');
@@ -50,14 +52,16 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
     const validFiles = fileArray.filter((f) => f.type.startsWith('image/'));
 
     if (validFiles.length === 0) {
-      alert('Por favor selecciona archivos de imagen válidos (PNG, JPG, WEBP).');
+      toast({ type: 'warning', message: 'Por favor selecciona archivos de imagen válidos (PNG, JPG, WEBP).' });
       return;
     }
 
     setProcessingFiles(true);
     try {
+      let totalOptimizedBytes = 0;
       for (const file of validFiles) {
         const compressedDataUrl = await compressImage(file, 1200, 1200, 0.75);
+        totalOptimizedBytes += getDataUrlByteSize(compressedDataUrl);
         const tempId = Math.random().toString(36).substring(2, 9);
         setPendingItems((prev) => [
           ...prev,
@@ -72,8 +76,13 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
           },
         ]);
       }
+      toast({
+        type: 'success',
+        message: `${validFiles.length} ${validFiles.length === 1 ? 'foto optimizada' : 'fotos optimizadas'} (${formatBytes(totalOptimizedBytes)} en total).`,
+      });
     } catch (err) {
       console.error('Error al procesar imágenes:', err);
+      toast({ type: 'error', message: 'Ocurrió un error al procesar las imágenes seleccionadas.' });
     } finally {
       setProcessingFiles(false);
     }
@@ -156,7 +165,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
   const handleSubmitBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pendingItems.length === 0) {
-      alert('Por favor agrega al menos una foto para subir.');
+      toast({ type: 'warning', message: 'Por favor agrega al menos una foto para subir.' });
       return;
     }
 
@@ -171,7 +180,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
       handleClose();
     } catch (error: any) {
       console.error('Error al guardar lote de fotos:', error);
-      alert(`Ocurrió un error al guardar fotos: ${error.message || 'Comprueba tu conexión.'}`);
+      toast({ type: 'error', message: `Ocurrió un error al guardar fotos: ${error.message || 'Comprueba tu conexión.'}` });
     } finally {
       setSubmitting(false);
     }
@@ -326,7 +335,12 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                 No has seleccionado ninguna foto aún. Haz clic arriba para comenzar.
               </div>
             ) : (
-              pendingItems.map((item, index) => (
+              pendingItems.map((item, index) => {
+                const optimizedSize = isImageDataUrl(item.previewUrl)
+                  ? formatBytes(getDataUrlByteSize(item.previewUrl))
+                  : 'URL externa';
+
+                return (
                 <div
                   key={item.id}
                   className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/60 rounded-xl border border-gray-200 dark:border-gray-700"
@@ -339,6 +353,9 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1.5">
+                    <span className="text-[0.68rem] font-bold uppercase tracking-wide text-gray-400">
+                      {optimizedSize}
+                    </span>
                     <input
                       type="text"
                       placeholder="Descripción de esta foto (Opcional)..."
@@ -367,7 +384,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                             : 'border-gray-300 text-gray-500 hover:border-purple-600'
                         }`}
                       >
-                        🖼️ En Nosotros
+                        En Nosotros
                       </button>
 
                       <button
@@ -379,7 +396,7 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                             : 'border-gray-300 text-gray-500 hover:border-[#D4AF37]'
                         }`}
                       >
-                        ★ Destacada
+                        Destacada
                       </button>
                     </div>
                   </div>
@@ -393,7 +410,8 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
                     <X size={16} />
                   </button>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -448,3 +466,18 @@ export const PhotoUploadModal: React.FC<PhotoUploadModalProps> = ({
     </div>
   );
 };
+
+function isImageDataUrl(value: string) {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/.test(value);
+}
+
+function getDataUrlByteSize(value: string) {
+  const base64 = value.split(',')[1] || '';
+  return Math.ceil((base64.length * 3) / 4);
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Edit2, Trash2, Calendar, Loader2, X, CheckCircle2 } from 'lucide-react';
+import { useFeedback } from '../components/ui/feedback';
+import { Plus, Edit2, Trash2, Calendar, Loader2, X, CheckCircle2, Search, MapPin, Users } from 'lucide-react';
 
 export type EstadoEvento = 'cotizacion' | 'confirmado' | 'en_montaje' | 'finalizado' | 'cancelado';
 
@@ -23,12 +24,14 @@ interface Evento {
 
 export default function EventosPage() {
   const { userData } = useAuth();
+  const { toast, confirm } = useFeedback();
   const canManageEvents = userData?.rol === 'admin' || userData?.rol === 'superadmin';
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterEstado, setFilterEstado] = useState<string>('todos');
+  const [search, setSearch] = useState('');
   
   // Form state con campos extendidos
   const [formData, setFormData] = useState({
@@ -157,7 +160,7 @@ export default function EventosPage() {
       setShowModal(false);
     } catch (error: any) {
       console.error('Error al guardar evento:', error);
-      alert(`Error al guardar evento: ${error.message || 'Verifica la conexion.'}`);
+      toast({ type: 'error', message: `Error al guardar evento: ${error.message || 'Verifica la conexión.'}` });
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +169,14 @@ export default function EventosPage() {
   const handleDelete = async (evento: Evento) => {
     if (!canManageEvents) return;
 
-    if (window.confirm(`Estas seguro de eliminar el evento "${evento.nombre}"?`)) {
+    const confirmed = await confirm({
+      title: 'Eliminar evento',
+      message: `¿Estás seguro de eliminar el evento "${evento.nombre}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
+
+    if (confirmed) {
       await deleteDoc(doc(db, 'eventos', evento.id));
       if (userData) {
         await addDoc(collection(db, 'auditoria'), {
@@ -184,7 +194,7 @@ export default function EventosPage() {
   const getEstadoBadge = (estado: EstadoEvento) => {
     switch (estado) {
       case 'cotizacion':
-        return <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Cotizacion</span>;
+        return <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Cotización</span>;
       case 'confirmado':
         return <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">Confirmado</span>;
       case 'en_montaje':
@@ -198,7 +208,23 @@ export default function EventosPage() {
     }
   };
 
-  const filteredEventos = eventos.filter(e => filterEstado === 'todos' ? true : e.estado === filterEstado);
+  const filteredEventos = eventos.filter(e => {
+    if (filterEstado !== 'todos' && e.estado !== filterEstado) return false;
+
+    const queryText = search.trim().toLowerCase();
+    if (!queryText) return true;
+
+    return [
+      e.nombre,
+      e.tipoEvento,
+      e.fecha,
+      e.clienteNombre,
+      e.clienteTelefono,
+      e.ubicacion,
+      e.descripcion,
+      e.estado,
+    ].some(value => String(value || '').toLowerCase().includes(queryText));
+  });
 
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-[#D4AF37]" size={36} /></div>;
 
@@ -210,15 +236,28 @@ export default function EventosPage() {
           <h1 className="text-2xl font-bold font-poppins text-gray-900 dark:text-white">Agenda de Eventos</h1>
           <p className="text-xs text-gray-500 dark:text-gray-400">Administra cotizaciones, fechas de montaje y clientes de RMC Eventos ({eventos.length} eventos)</p>
         </div>
-        {canManageEvents && (
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#b8952d] text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-sm cursor-pointer"
-          >
-            <Plus size={20} />
-            Crear Nuevo Evento
-          </button>
-        )}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <div className="relative w-full sm:w-80">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar evento, cliente o teléfono"
+              className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-900 focus:border-[#D4AF37] focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            />
+          </div>
+
+          {canManageEvents && (
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#b8952d] text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-sm cursor-pointer"
+            >
+              <Plus size={20} />
+              Crear Nuevo Evento
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -259,7 +298,69 @@ export default function EventosPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <>
+        <div className="grid gap-4 md:hidden">
+          {filteredEventos.map(evento => (
+            <div key={evento.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-gray-900 dark:text-white">{evento.nombre}</h2>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {evento.clienteNombre} {evento.clienteTelefono && `(${evento.clienteTelefono})`}
+                  </p>
+                </div>
+                {getEstadoBadge(evento.estado)}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300">
+                <div>
+                  <span className="block font-bold uppercase tracking-wide text-gray-400">Fecha</span>
+                  <span className="mt-1 block font-semibold">{evento.fecha || '-'}</span>
+                </div>
+                <div>
+                  <span className="block font-bold uppercase tracking-wide text-gray-400">Tipo</span>
+                  <span className="mt-1 block capitalize font-semibold">{evento.tipoEvento}</span>
+                </div>
+                <div className="flex gap-2">
+                  <MapPin size={14} className="mt-0.5 shrink-0 text-[#D4AF37]" />
+                  <span>{evento.ubicacion || 'Santa Cruz'}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Users size={14} className="mt-0.5 shrink-0 text-[#D4AF37]" />
+                  <span>{evento.invitados || 0} invitados</span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3 dark:border-gray-700">
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  {evento.presupuestoBs ? `Bs. ${evento.presupuestoBs.toLocaleString()}` : 'Sin monto'}
+                </span>
+                {canManageEvents ? (
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleOpenModal(evento)}
+                      className="p-2 text-[#D4AF37] hover:bg-[#D4AF37]/10 rounded-lg transition-colors"
+                      title="Editar evento"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(evento)}
+                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Eliminar evento"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs font-medium text-gray-400">Solo lectura</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden md:block bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
@@ -267,7 +368,7 @@ export default function EventosPage() {
                   <th className="p-4">Evento / Cliente</th>
                   <th className="p-4">Tipo</th>
                   <th className="p-4">Fecha</th>
-                  <th className="p-4">Ubicacion</th>
+                  <th className="p-4">Ubicación</th>
                   <th className="p-4">Invitados</th>
                   <th className="p-4">Monto (Bs.)</th>
                   <th className="p-4">Estado</th>
@@ -331,6 +432,7 @@ export default function EventosPage() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Modal Crear / Editar Evento Completo */}
@@ -409,10 +511,10 @@ export default function EventosPage() {
                       value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value as EstadoEvento})}
                       className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
                     >
-                      <option value="cotizacion">Cotizacion (Borrador)</option>
+                      <option value="cotizacion">Cotización (borrador)</option>
                       <option value="confirmado">Confirmado (Reserva pagada)</option>
                       <option value="en_montaje">En montaje / En proceso</option>
-                      <option value="finalizado">Finalizado con exito</option>
+                      <option value="finalizado">Finalizado con éxito</option>
                       <option value="cancelado">Cancelado</option>
                     </select>
                   </div>

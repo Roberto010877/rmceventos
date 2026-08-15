@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../components/ui/feedback';
 import { Save, Phone, Mail, MapPin, Globe, MessageCircle, Loader2, CheckCircle, Image as ImageIcon, UploadCloud, RotateCcw, HelpCircle } from 'lucide-react';
 
 interface SiteConfig {
@@ -93,10 +94,12 @@ const compressImage = (file: File, maxWidth = 1280, maxHeight = 720): Promise<st
 
 const ConfiguracionPage = () => {
   const { userData } = useAuth();
+  const { toast } = useFeedback();
   const [config, setConfig] = useState<SiteConfig>(defaultConfig);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
 
   const heroFileInputRef = useRef<HTMLInputElement>(null);
@@ -121,18 +124,19 @@ const ConfiguracionPage = () => {
   const handleChange = (field: keyof SiteConfig, value: string) => {
     setConfig(prev => ({ ...prev, [field]: value }));
     setSaved(false);
+    setHasUnsavedChanges(true);
   };
 
   const handleHeroFileSelected = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona un archivo de imagen válido.');
+      toast({ type: 'warning', message: 'Por favor selecciona un archivo de imagen válido.' });
       return;
     }
     setUploadingHero(true);
     try {
       const compressedDataUrl = await compressImage(file);
       if (getDataUrlByteSize(compressedDataUrl) > MAX_HERO_IMAGE_BYTES) {
-        alert('La imagen sigue superando 200 KB despues de comprimirla. Usa una imagen mas liviana o una URL externa.');
+        toast({ type: 'warning', message: 'La imagen sigue superando 200 KB después de comprimirla. Usa una imagen más liviana o una URL externa.' });
         return;
       }
 
@@ -141,9 +145,11 @@ const ConfiguracionPage = () => {
         heroImagenUrl: compressedDataUrl,
       }));
       setSaved(false);
+      setHasUnsavedChanges(true);
+      toast({ type: 'success', message: `Foto optimizada a ${formatBytes(getDataUrlByteSize(compressedDataUrl))}. Recuerda guardar los cambios.` });
     } catch (err) {
       console.error('Error al procesar imagen de portada:', err);
-      alert('Ocurrió un error al procesar la imagen de portada.');
+      toast({ type: 'error', message: 'Ocurrió un error al procesar la imagen de portada.' });
     } finally {
       setUploadingHero(false);
     }
@@ -152,24 +158,60 @@ const ConfiguracionPage = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const normalizedConfig = {
+        ...config,
+        nombreNegocio: config.nombreNegocio.trim(),
+        slogan: config.slogan.trim(),
+        whatsappNumero: normalizeWhatsappNumber(config.whatsappNumero),
+        telefonoMostrar: config.telefonoMostrar.trim(),
+        correoContacto: config.correoContacto.trim().toLowerCase(),
+        ciudad: config.ciudad.trim(),
+        direccion: config.direccion.trim(),
+        instagramUrl: config.instagramUrl.trim(),
+        facebookUrl: config.facebookUrl.trim(),
+        tiktokUrl: config.tiktokUrl.trim(),
+        horarioAtencion: config.horarioAtencion.trim(),
+        heroImagenUrl: config.heroImagenUrl.trim(),
+      };
+
+      if (normalizedConfig.whatsappNumero && normalizedConfig.whatsappNumero.length < 8) {
+        toast({ type: 'warning', message: 'El número de WhatsApp debe incluir código de país y al menos 8 dígitos.' });
+        return;
+      }
+
+      if (normalizedConfig.correoContacto && !isValidEmail(normalizedConfig.correoContacto)) {
+        toast({ type: 'warning', message: 'Revisa el correo de contacto antes de guardar.' });
+        return;
+      }
+
+      const invalidSocialUrl = [normalizedConfig.instagramUrl, normalizedConfig.facebookUrl, normalizedConfig.tiktokUrl]
+        .find(url => url && !isValidPublicUrl(url));
+      if (invalidSocialUrl) {
+        toast({ type: 'warning', message: 'Las redes sociales deben usar enlaces completos que empiecen con https://.' });
+        return;
+      }
+
       if (isImageDataUrl(config.heroImagenUrl)) {
-        const heroSize = getDataUrlByteSize(config.heroImagenUrl);
+        const heroSize = getDataUrlByteSize(normalizedConfig.heroImagenUrl);
         if (heroSize > MAX_HERO_IMAGE_BYTES) {
-          alert('La imagen de portada supera 200 KB. Comprime la imagen o usa una URL externa antes de guardar.');
+          toast({ type: 'warning', message: 'La imagen de portada supera 200 KB. Comprime la imagen o usa una URL externa antes de guardar.' });
           return;
         }
       }
 
       await setDoc(doc(db, 'configuracion', 'general'), {
-        ...config,
+        ...normalizedConfig,
         actualizadoPor: userData?.email || '',
         actualizadoEn: new Date(),
       });
+      setConfig(normalizedConfig);
       setSaved(true);
+      setHasUnsavedChanges(false);
+      toast({ type: 'success', message: 'Configuración guardada correctamente.' });
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error('Error al guardar:', err);
-      alert('Error al guardar la configuración');
+      toast({ type: 'error', message: 'Error al guardar la configuración.' });
     } finally {
       setSaving(false);
     }
@@ -185,14 +227,19 @@ const ConfiguracionPage = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-poppins font-bold text-[var(--text-primary)]">Configuración General</h1>
           <p className="text-[var(--text-secondary)] mt-1">Gestiona los datos de contacto, imagen de portada y redes sociales</p>
+          {hasUnsavedChanges && (
+            <p className="mt-2 inline-flex items-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 px-3 py-1 text-xs font-bold">
+              Tienes cambios pendientes sin guardar
+            </p>
+          )}
         </div>
         <button
           onClick={handleSave}
-          disabled={saving || uploadingHero}
+          disabled={saving || uploadingHero || (!hasUnsavedChanges && !saved)}
           className="flex items-center gap-2 bg-[#D4AF37] hover:bg-[#b8952d] disabled:opacity-50 text-white px-5 py-3 rounded-xl font-medium transition-all shadow-sm cursor-pointer"
         >
           {saving ? <Loader2 size={18} className="animate-spin" /> : saved ? <CheckCircle size={18} /> : <Save size={18} />}
@@ -222,19 +269,19 @@ const ConfiguracionPage = () => {
               <HelpCircle size={18} />
             </div>
             <div className="space-y-1.5 flex-1">
-              <h4 className="font-bold text-[#D4AF37] text-xs uppercase tracking-wider">Guía & Especificaciones Recomendadas para la Foto de Portada</h4>
+              <h4 className="font-bold text-[#D4AF37] text-xs uppercase tracking-wider">Guía y especificaciones recomendadas para la foto de portada</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[0.8rem] text-gray-600 dark:text-gray-300">
                 <div>
-                  <strong className="text-gray-800 dark:text-gray-200">📐 Dimensiones:</strong> 1920 × 1080 px (Panorámica 16:9 Full HD) o mínimo 1600 × 900 px.
+                  <strong className="text-gray-800 dark:text-gray-200">Dimensiones:</strong> 1920 x 1080 px (panorámica 16:9 Full HD) o mínimo 1600 x 900 px.
                 </div>
                 <div>
-                  <strong className="text-gray-800 dark:text-gray-200">🖼️ Formatos:</strong> JPG, JPEG o WEBP (los mejores para fotos).
+                  <strong className="text-gray-800 dark:text-gray-200">Formatos:</strong> JPG, JPEG o WEBP (los mejores para fotos).
                 </div>
                 <div>
-                  <strong className="text-gray-800 dark:text-gray-200">✨ Composición:</strong> Foto con montaje o sujeto al centro o derecha (para dejar espacio a la izquierda).
+                  <strong className="text-gray-800 dark:text-gray-200">Composición:</strong> foto con montaje o sujeto al centro o derecha (para dejar espacio a la izquierda).
                 </div>
                 <div>
-                  <strong className="text-gray-800 dark:text-gray-200">⚡ Compresión:</strong> Automática (el sistema la optimiza a menos de 300 KB).
+                  <strong className="text-gray-800 dark:text-gray-200">Compresión:</strong> automática (el sistema la optimiza a menos de 200 KB).
                 </div>
               </div>
             </div>
@@ -257,9 +304,17 @@ const ConfiguracionPage = () => {
                 className="bg-[#D4AF37] hover:bg-[#b8952d] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg transition-all flex items-center gap-2 cursor-pointer border border-white/20"
               >
                 {uploadingHero ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
-                {uploadingHero ? 'Optimizando foto...' : '📷 Seleccionar nueva foto de portada'}
+                {uploadingHero ? 'Optimizando foto...' : 'Seleccionar nueva foto de portada'}
               </button>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-[var(--text-secondary)]">
+            <span className="rounded-full bg-[var(--bg-primary)] border border-[var(--border-color)] px-3 py-1">
+              Estado: {isImageDataUrl(config.heroImagenUrl) ? `imagen comprimida (${formatBytes(getDataUrlByteSize(config.heroImagenUrl))})` : 'URL externa o imagen local'}
+            </span>
+            <span className="rounded-full bg-[var(--bg-primary)] border border-[var(--border-color)] px-3 py-1">
+              Límite recomendado: {formatBytes(MAX_HERO_IMAGE_BYTES)}
+            </span>
           </div>
 
           <Field
@@ -286,6 +341,7 @@ const ConfiguracionPage = () => {
               onClick={() => {
                 setConfig(prev => ({ ...prev, heroImagenUrl: '/images/extracted/img_6.jpeg' }));
                 setSaved(false);
+                setHasUnsavedChanges(true);
               }}
               className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
@@ -401,4 +457,26 @@ function isImageDataUrl(value: string) {
 function getDataUrlByteSize(value: string) {
   const base64 = value.split(',')[1] || '';
   return Math.ceil((base64.length * 3) / 4);
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+function normalizeWhatsappNumber(value: string) {
+  return value.replace(/\D/g, '');
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidPublicUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }

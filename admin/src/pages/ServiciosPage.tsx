@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../components/ui/feedback';
 import { Loader2, Edit2, ArrowUp, ArrowDown, X, Check, UploadCloud, Image as ImageIcon, Plus, Sparkles, RefreshCw } from 'lucide-react';
 
 interface Servicio {
@@ -82,8 +83,11 @@ const compressImage = (file: File, maxWidth = 1200, maxHeight = 1200, quality = 
   });
 };
 
+const SERVICE_IMAGE_WARNING_BYTES = 250 * 1024;
+
 export default function ServiciosPage() {
   const { userData } = useAuth();
+  const { toast, confirm } = useFeedback();
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -99,17 +103,34 @@ export default function ServiciosPage() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const addFileInputRef = useRef<HTMLInputElement>(null);
 
-  const seedDefaultServices = async () => {
+  const seedDefaultServices = useCallback(async (showSuccessToast = false) => {
     setSeeding(true);
     try {
       for (const s of defaultServicesData) {
         await setDoc(doc(db, 'servicios', s.id), s);
       }
+      if (showSuccessToast) {
+        toast({ type: 'success', message: 'Servicios iniciales restablecidos correctamente.' });
+      }
     } catch (err) {
       console.error('Error al sembrar servicios iniciales:', err);
+      toast({ type: 'error', message: 'No se pudieron restablecer los servicios iniciales.' });
     } finally {
       setSeeding(false);
     }
+  }, [toast]);
+
+  const handleSeedDefaultServices = async () => {
+    const accepted = await confirm({
+      title: 'Restablecer servicios iniciales',
+      message: 'Esto volverá a cargar los 3 servicios base y puede reemplazar textos o imágenes de esos servicios. ¿Quieres continuar?',
+      confirmLabel: 'Restablecer',
+      cancelLabel: 'Cancelar',
+      tone: 'danger',
+    });
+
+    if (!accepted) return;
+    await seedDefaultServices(true);
   };
 
   useEffect(() => {
@@ -128,7 +149,7 @@ export default function ServiciosPage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [seedDefaultServices]);
 
   const handleEditClick = (servicio: Servicio) => {
     setEditingId(servicio.id);
@@ -141,19 +162,27 @@ export default function ServiciosPage() {
 
   const handleFileSelected = async (file: File, isNew = false) => {
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona un archivo de imagen válido.');
+      toast({ type: 'warning', message: 'Por favor selecciona un archivo de imagen válido.' });
       return;
     }
     setProcessingImage(true);
     try {
       const compressed = await compressImage(file, 1200, 1200, 0.8);
+      const compressedSize = getDataUrlByteSize(compressed);
       if (isNew) {
         setNewForm(prev => ({ ...prev, imagenUrl: compressed }));
       } else {
         setEditForm(prev => ({ ...prev, imagenUrl: compressed }));
       }
+      toast({
+        type: compressedSize > SERVICE_IMAGE_WARNING_BYTES ? 'warning' : 'success',
+        message: compressedSize > SERVICE_IMAGE_WARNING_BYTES
+          ? `Imagen optimizada a ${formatBytes(compressedSize)}. Funciona, pero conviene usar una foto más liviana.`
+          : `Imagen optimizada a ${formatBytes(compressedSize)}.`,
+      });
     } catch (err) {
       console.error('Error al procesar imagen de servicio:', err);
+      toast({ type: 'error', message: 'Ocurrió un error al procesar la imagen del servicio.' });
     } finally {
       setProcessingImage(false);
     }
@@ -173,9 +202,10 @@ export default function ServiciosPage() {
         fecha: new Date()
       });
       setEditingId(null);
+      toast({ type: 'success', message: 'Servicio actualizado correctamente.' });
     } catch (error) {
       console.error(error);
-      alert('Error al guardar servicio');
+      toast({ type: 'error', message: 'Error al guardar servicio.' });
     } finally {
       setSaving(false);
     }
@@ -204,9 +234,10 @@ export default function ServiciosPage() {
 
       setShowAddModal(false);
       setNewForm({ nombre: '', descripcion: '', imagenUrl: '/images/extracted/img_9.jpeg' });
+      toast({ type: 'success', message: 'Servicio creado correctamente.' });
     } catch (err) {
       console.error('Error al crear servicio:', err);
-      alert('Error al crear el nuevo servicio');
+      toast({ type: 'error', message: 'Error al crear el nuevo servicio.' });
     } finally {
       setSaving(false);
     }
@@ -285,7 +316,7 @@ export default function ServiciosPage() {
         {canEdit && (
           <div className="flex gap-2">
             <button
-              onClick={seedDefaultServices}
+              onClick={handleSeedDefaultServices}
               className="flex items-center gap-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-xs font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer"
               title="Restablecer los 3 servicios iniciales"
             >
@@ -317,7 +348,7 @@ export default function ServiciosPage() {
             Puedes cargar los 3 servicios iniciales recomendados de RMC Eventos o crear uno nuevo.
           </p>
           <button
-            onClick={seedDefaultServices}
+            onClick={() => seedDefaultServices(true)}
             className="bg-[#D4AF37] hover:bg-[#b8952d] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow transition-all cursor-pointer"
           >
             Cargar Servicios Iniciales
@@ -354,7 +385,8 @@ export default function ServiciosPage() {
                 )}
 
                 {/* Service Preview Image */}
-                <div className="w-full md:w-52 h-36 rounded-xl overflow-hidden bg-gray-900 shrink-0 relative border border-gray-200 dark:border-gray-700 group">
+                <div className="w-full md:w-52 shrink-0">
+                  <div className="h-36 rounded-xl overflow-hidden bg-gray-900 relative border border-gray-200 dark:border-gray-700 group">
                   <img 
                     src={editingId === servicio.id ? (editForm.imagenUrl || displayImg) : displayImg} 
                     alt={servicio.nombre} 
@@ -370,6 +402,12 @@ export default function ServiciosPage() {
                       {processingImage ? <Loader2 size={20} className="animate-spin text-[#D4AF37]" /> : <UploadCloud size={20} className="text-[#D4AF37]" />}
                       {processingImage ? 'Procesando...' : 'Cambiar Imagen desde tu Equipo'}
                     </button>
+                  )}
+                  </div>
+                  {editingId === servicio.id && isImageDataUrl(editForm.imagenUrl) && (
+                    <p className="mt-2 text-[0.7rem] font-medium text-gray-500 dark:text-gray-400">
+                      Peso optimizado: {formatBytes(getDataUrlByteSize(editForm.imagenUrl))}
+                    </p>
                   )}
                 </div>
 
@@ -515,6 +553,11 @@ export default function ServiciosPage() {
                     <span>Seleccionar Foto desde tu equipo</span>
                   </button>
                 </div>
+                {isImageDataUrl(newForm.imagenUrl) && (
+                  <p className="text-[0.7rem] font-medium text-gray-500 dark:text-gray-400">
+                    Peso optimizado: {formatBytes(getDataUrlByteSize(newForm.imagenUrl))}
+                  </p>
+                )}
               </div>
 
               <div className="pt-2 flex gap-3">
@@ -541,4 +584,18 @@ export default function ServiciosPage() {
       )}
     </div>
   );
+}
+
+function isImageDataUrl(value: string) {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/.test(value);
+}
+
+function getDataUrlByteSize(value: string) {
+  const base64 = value.split(',')[1] || '';
+  return Math.ceil((base64.length * 3) / 4);
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
 }

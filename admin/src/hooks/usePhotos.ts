@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Foto, FilterCategory, PhotoCounts, PendingFileItem } from '../types/photo';
 import { photoService, type UserAuditContext } from '../services/photoService';
+import { useFeedback } from '../components/ui/feedback';
 
 export function usePhotos() {
+  const { confirm } = useFeedback();
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterCategory>('todas');
@@ -86,11 +88,18 @@ export function usePhotos() {
 
   const deletePhoto = useCallback(
     async (id: string, user?: UserAuditContext | null) => {
-      if (window.confirm('¿Estás seguro de eliminar esta foto de la galería?')) {
+      const confirmed = await confirm({
+        title: 'Eliminar foto',
+        message: '¿Estás seguro de eliminar esta foto de la galería?',
+        confirmLabel: 'Eliminar',
+        tone: 'danger',
+      });
+
+      if (confirmed) {
         await photoService.deletePhoto(id, user);
       }
     },
-    []
+    [confirm]
   );
 
   const uploadBatch = useCallback(

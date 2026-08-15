@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Shield, Plus, X, Trash2 } from 'lucide-react';
+import { useFeedback } from '../components/ui/feedback';
+import { Copy, Info, Loader2, Shield, Plus, X, Trash2 } from 'lucide-react';
 
 interface Usuario {
   id: string;
@@ -33,6 +34,7 @@ const getEstadoUsuario = (usuario: Usuario, currentUserEmail?: string) => {
 
 export default function UsuariosPage() {
   const { userData } = useAuth();
+  const { confirm, toast } = useFeedback();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -55,27 +57,49 @@ export default function UsuariosPage() {
     return () => unsubscribe();
   }, [userData]);
 
-  const handleRoleChange = async (userId: string, newRole: string) => {
+  const handleRoleChange = async (usuario: Usuario, newRole: string) => {
     if (!userData) return;
+    if (usuario.rol === newRole) return;
+
+    if (newRole === 'superadmin' || usuario.rol === 'superadmin') {
+      const confirmed = await confirm({
+        title: newRole === 'superadmin' ? 'Asignar rol superadmin' : 'Cambiar rol superadmin',
+        message: newRole === 'superadmin'
+          ? `¿Asignar permisos de superadministrador a ${usuario.email}? Podrá gestionar usuarios, roles y auditoría.`
+          : `¿Cambiar el rol de ${usuario.email}? Perderá permisos de superadministrador.`,
+        confirmLabel: 'Confirmar cambio',
+        tone: newRole === 'superadmin' ? 'danger' : 'default',
+      });
+
+      if (!confirmed) return;
+    }
+
     try {
-      await updateDoc(doc(db, 'usuarios', userId), { rol: newRole });
+      await updateDoc(doc(db, 'usuarios', usuario.id), { rol: newRole });
       await addDoc(collection(db, 'auditoria'), {
         usuarioId: userData.uid,
         usuarioEmail: userData.email,
         accion: 'usuario.cambiar_rol',
-        entidadId: userId,
+        entidadId: usuario.id,
         detalle: `Rol cambiado a ${newRole}`,
         fecha: new Date()
       });
+      toast({ type: 'success', message: `Rol actualizado para ${usuario.email}.` });
     } catch (error) {
       console.error(error);
+      toast({ type: 'error', message: 'No se pudo actualizar el rol del usuario.' });
     }
   };
 
   const handleDeleteUser = async (usuario: Usuario) => {
     if (!userData || usuario.email === userData.email) return;
 
-    const confirmed = window.confirm(`Eliminar el acceso de ${usuario.email}?`);
+    const confirmed = await confirm({
+      title: 'Eliminar acceso',
+      message: `¿Eliminar el acceso de ${usuario.email}? Esta acción no elimina su cuenta de Google, sólo su acceso al panel.`,
+      confirmLabel: 'Eliminar acceso',
+      tone: 'danger',
+    });
     if (!confirmed) return;
 
     try {
@@ -88,8 +112,10 @@ export default function UsuariosPage() {
         detalle: `Usuario eliminado: ${usuario.email}`,
         fecha: new Date()
       });
+      toast({ type: 'success', message: `Acceso eliminado para ${usuario.email}.` });
     } catch (error) {
       console.error(error);
+      toast({ type: 'error', message: 'No se pudo eliminar el acceso del usuario.' });
     }
   };
 
@@ -99,6 +125,20 @@ export default function UsuariosPage() {
     setSubmitting(true);
     try {
       const normalizedEmail = normalizeEmail(newForm.email);
+      if (newForm.rol === 'superadmin') {
+        const confirmed = await confirm({
+          title: 'Pre-registrar superadmin',
+          message: `¿Crear un pre-registro superadmin para ${normalizedEmail}? Este rol permite gestionar usuarios y auditoría.`,
+          confirmLabel: 'Crear superadmin',
+          tone: 'danger',
+        });
+
+        if (!confirmed) {
+          setSubmitting(false);
+          return;
+        }
+      }
+
       await setDoc(doc(db, 'usuarios', normalizedEmail), {
         nombre: newForm.nombre.trim(),
         email: normalizedEmail,
@@ -116,10 +156,27 @@ export default function UsuariosPage() {
       });
       setShowModal(false);
       setNewForm({ nombre: '', email: '', rol: 'editor' });
+      toast({
+        type: 'success',
+        message: `${normalizedEmail} quedó pendiente. Debe iniciar sesión con ese Gmail para activar su acceso.`,
+      });
     } catch (error) {
       console.error(error);
+      toast({ type: 'error', message: 'No se pudo pre-registrar el usuario.' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCopyInstructions = async (usuario: Usuario) => {
+    const message = `Hola ${usuario.nombre || ''}, ya tienes acceso al panel de RMC Eventos. Entra al panel e inicia sesión con Google usando este correo: ${usuario.email}`;
+
+    try {
+      await navigator.clipboard.writeText(message);
+      toast({ type: 'success', message: 'Instrucciones copiadas al portapapeles.' });
+    } catch (error) {
+      console.error(error);
+      toast({ type: 'error', message: 'No se pudieron copiar las instrucciones.' });
     }
   };
 
@@ -148,7 +205,12 @@ export default function UsuariosPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Usuarios</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Pre-registra correos Gmail y controla los roles del panel.
+          </p>
+        </div>
         <button 
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 bg-[#D4AF37] text-white px-4 py-2 rounded-lg hover:bg-[#b8952d] transition-colors"
@@ -156,6 +218,16 @@ export default function UsuariosPage() {
           <Plus size={20} />
           Agregar usuario
         </button>
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/10 p-4 text-sm text-gray-700 dark:text-gray-200">
+        <Info size={18} className="mt-0.5 shrink-0 text-[#D4AF37]" />
+        <div>
+          <p className="font-semibold text-gray-900 dark:text-white">Cómo funcionan los estados</p>
+          <p className="mt-1">
+            Pendiente significa que el correo ya está autorizado, pero esa persona aún debe iniciar sesión con Google usando exactamente ese Gmail. Activo significa que el correo ya se vinculó con su cuenta de Google.
+          </p>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
@@ -188,7 +260,7 @@ export default function UsuariosPage() {
                   <td className="p-4 text-sm">
                     <select 
                       value={user.rol}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                      onChange={(e) => handleRoleChange(user, e.target.value)}
                       disabled={user.email === userData.email}
                       className="p-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                     >
@@ -210,6 +282,16 @@ export default function UsuariosPage() {
                     >
                       <Trash2 size={16} />
                     </button>
+                    {getEstadoUsuario(user, userData.email) === 'pendiente' && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyInstructions(user)}
+                        className="ml-1 rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-[#D4AF37] dark:text-gray-400 dark:hover:bg-gray-700"
+                        title="Copiar instrucciones de acceso"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -228,7 +310,7 @@ export default function UsuariosPage() {
               </button>
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              El usuario deberá iniciar sesión con Google usando este correo para activar su cuenta.
+              El usuario deberá iniciar sesión con Google usando exactamente este correo para activar su cuenta.
             </p>
             <form onSubmit={handleAddUser} className="space-y-4">
               <div>
@@ -257,6 +339,9 @@ export default function UsuariosPage() {
                   <option value="admin">Admin</option>
                   <option value="superadmin">Superadmin</option>
                 </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Editor gestiona contenido básico. Admin gestiona contactos, servicios y configuración. Superadmin también gestiona usuarios y auditoría.
+                </p>
               </div>
               <button 
                 type="submit" disabled={submitting}

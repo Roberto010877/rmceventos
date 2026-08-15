@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useFeedback } from '../components/ui/feedback';
 import { Check, X as XIcon, MessageSquare, Loader2, Plus, Star, Trash2 } from 'lucide-react';
 
 interface Testimonio {
@@ -16,6 +17,7 @@ interface Testimonio {
 
 export default function TestimoniosPage() {
   const { userData } = useAuth();
+  const { toast, confirm } = useFeedback();
   const [testimonios, setTestimonios] = useState<Testimonio[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'pendientes' | 'aprobados'>('pendientes');
@@ -59,7 +61,14 @@ export default function TestimoniosPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar permanentemente este testimonio?')) return;
+    const confirmed = await confirm({
+      title: 'Eliminar testimonio',
+      message: '¿Estás seguro de que deseas eliminar permanentemente este testimonio?',
+      confirmLabel: 'Eliminar',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
     try {
       await deleteDoc(doc(db, 'testimonios', id));
       if (userData) {
@@ -105,7 +114,7 @@ export default function TestimoniosPage() {
       setRating(5);
     } catch (err) {
       console.error('Error al crear testimonio:', err);
-      alert('Ocurrió un error al crear el testimonio.');
+      toast({ type: 'error', message: 'Ocurrió un error al crear el testimonio.' });
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
+import { FeedbackProvider } from './components/ui/FeedbackProvider';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -18,31 +19,33 @@ const ConfiguracionPage = lazy(() => import('./pages/ConfiguracionPage'));
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Suspense fallback={
-          <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-primary)]">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-dorado border-t-transparent"></div>
-          </div>
-        }>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            
-            <Route path="/" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-              <Route index element={<DashboardPage />} />
-              <Route path="fotos" element={<FotosPage />} />
-              <Route path="eventos" element={<EventosPage />} />
-              <Route path="testimonios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><TestimoniosPage /></ProtectedRoute>} />
-              <Route path="contactos" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ContactosPage /></ProtectedRoute>} />
-              <Route path="servicios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ServiciosPage /></ProtectedRoute>} />
-              <Route path="usuarios" element={<ProtectedRoute requiredRole={['superadmin']}><UsuariosPage /></ProtectedRoute>} />
-              <Route path="auditoria" element={<ProtectedRoute requiredRole={['superadmin']}><AuditoriaPage /></ProtectedRoute>} />
-              <Route path="configuracion" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ConfiguracionPage /></ProtectedRoute>} />
-            </Route>
-            
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+      <FeedbackProvider>
+        <BrowserRouter>
+          <Suspense fallback={
+            <div className="flex h-screen w-screen items-center justify-center bg-[var(--bg-primary)]">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-dorado border-t-transparent"></div>
+            </div>
+          }>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+
+              <Route path="/" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+                <Route index element={<DashboardPage />} />
+                <Route path="fotos" element={<FotosPage />} />
+                <Route path="eventos" element={<EventosPage />} />
+                <Route path="testimonios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><TestimoniosPage /></ProtectedRoute>} />
+                <Route path="contactos" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ContactosPage /></ProtectedRoute>} />
+                <Route path="servicios" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ServiciosPage /></ProtectedRoute>} />
+                <Route path="usuarios" element={<ProtectedRoute requiredRole={['superadmin']}><UsuariosPage /></ProtectedRoute>} />
+                <Route path="auditoria" element={<ProtectedRoute requiredRole={['superadmin']}><AuditoriaPage /></ProtectedRoute>} />
+                <Route path="configuracion" element={<ProtectedRoute requiredRole={['admin', 'superadmin']}><ConfiguracionPage /></ProtectedRoute>} />
+              </Route>
+
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </FeedbackProvider>
     </AuthProvider>
   );
 }
