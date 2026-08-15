@@ -27,6 +27,21 @@ service cloud.firestore {
       return estaAutenticado() && getRol() == 'superadmin';
     }
 
+    function emailAutenticado() {
+      return request.auth.token.email;
+    }
+
+    function preregistroUsuario(preRegistroId) {
+      return get(/databases/$(database)/documents/usuarios/$(preRegistroId));
+    }
+
+    function esPreregistroPendiente(preRegistroId) {
+      return exists(/databases/$(database)/documents/usuarios/$(preRegistroId))
+             && preregistroUsuario(preRegistroId).data.email == emailAutenticado()
+             && (!preregistroUsuario(preRegistroId).data.keys().hasAny(['estado'])
+                 || preregistroUsuario(preRegistroId).data.estado == 'pendiente');
+    }
+
     // ── Regla base: por defecto todo está denegado ──
     match /{document=**} {
       allow read, write: if false;
@@ -90,12 +105,22 @@ service cloud.firestore {
     // Excepción: un usuario autenticado puede leer su propio documento
     // Bootstrap: el primer superadmin puede crear su propio doc si no existe
     match /usuarios/{userId} {
-      allow read: if estaAutenticado() && (request.auth.uid == userId || esSuperadmin());
+      allow read: if estaAutenticado()
+                  && (request.auth.uid == userId
+                      || esSuperadmin()
+                      || resource.data.email == emailAutenticado());
       allow create: if esSuperadmin()
                     || (estaAutenticado()
                         && request.auth.uid == userId
                         && request.auth.token.email == 'melgar.robertocarlos@gmail.com'
-                        && !exists(/databases/$(database)/documents/usuarios/$(userId)));
+                        && !exists(/databases/$(database)/documents/usuarios/$(userId)))
+                    || (estaAutenticado()
+                        && request.auth.uid == userId
+                        && request.resource.data.preRegistroId is string
+                        && esPreregistroPendiente(request.resource.data.preRegistroId)
+                        && request.resource.data.email == emailAutenticado()
+                        && request.resource.data.rol == preregistroUsuario(request.resource.data.preRegistroId).data.rol
+                        && request.resource.data.estado == 'activo');
       allow update, delete: if esSuperadmin();
     }
 

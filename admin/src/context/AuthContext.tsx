@@ -5,7 +5,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, query, setDoc, where } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../lib/firebase';
 
 type Rol = 'editor' | 'admin' | 'superadmin';
@@ -31,6 +31,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /** Email del primer superadmin — se usa solo para el bootstrap inicial */
 const SUPERADMIN_EMAIL = 'melgar.robertocarlos@gmail.com';
+const ROLES: Rol[] = ['editor', 'admin', 'superadmin'];
+
+const normalizeEmail = (email?: string | null) => email?.trim().toLowerCase() || '';
+
+const isRol = (rol: unknown): rol is Rol => typeof rol === 'string' && ROLES.includes(rol as Rol);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -45,27 +50,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (firebaseUser) {
         try {
+          const normalizedEmail = normalizeEmail(firebaseUser.email);
           const userDocRef = doc(db, 'usuarios', firebaseUser.uid);
           let userDoc = await getDoc(userDocRef);
 
           // Bootstrap: si el usuario es el superadmin y no tiene documento, crearlo
-          if (!userDoc.exists() && firebaseUser.email === SUPERADMIN_EMAIL) {
+          if (!userDoc.exists() && normalizedEmail === SUPERADMIN_EMAIL) {
             console.log('🔑 Bootstrap: creando documento de superadmin...');
             await setDoc(userDocRef, {
-              email: firebaseUser.email,
+              email: normalizedEmail,
               nombre: firebaseUser.displayName || 'Administrador',
               rol: 'superadmin' as Rol,
               fechaAlta: new Date(),
+              estado: 'activo',
               photoURL: firebaseUser.photoURL || null,
             });
             userDoc = await getDoc(userDocRef);
+          }
+
+          if (!userDoc.exists() && normalizedEmail) {
+            const pendingUserRef = doc(db, 'usuarios', normalizedEmail);
+            let pendingUserDoc = await getDoc(pendingUserRef);
+            let pendingUserId = normalizedEmail;
+
+            if (!pendingUserDoc.exists()) {
+              const legacyPendingQuery = query(
+                collection(db, 'usuarios'),
+                where('email', '==', normalizedEmail),
+                limit(1)
+              );
+              const legacyPendingSnapshot = await getDocs(legacyPendingQuery);
+
+              if (!legacyPendingSnapshot.empty) {
+                pendingUserDoc = legacyPendingSnapshot.docs[0];
+                pendingUserId = pendingUserDoc.id;
+              }
+            }
+
+            if (pendingUserDoc.exists()) {
+              const pendingData = pendingUserDoc.data();
+              const pendingEmail = normalizeEmail(pendingData.email);
+
+              if (pendingEmail === normalizedEmail && isRol(pendingData.rol)) {
+                await setDoc(userDocRef, {
+                  email: normalizedEmail,
+                  nombre: pendingData.nombre || firebaseUser.displayName || '',
+                  rol: pendingData.rol,
+                  fechaAlta: pendingData.fechaAlta || new Date(),
+                  fechaActivacion: new Date(),
+                  estado: 'activo',
+                  photoURL: firebaseUser.photoURL || null,
+                  preRegistroId: pendingUserId,
+                });
+                userDoc = await getDoc(userDocRef);
+              }
+            }
           }
 
           if (userDoc.exists()) {
             const data = userDoc.data();
             setUserData({
               uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
+              email: normalizedEmail,
               nombre: data.nombre || firebaseUser.displayName || '',
               rol: data.rol as Rol,
               photoURL: firebaseUser.photoURL || undefined,

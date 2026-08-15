@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Shield, Plus, X } from 'lucide-react';
+import { Loader2, Shield, Plus, X, Trash2 } from 'lucide-react';
 
 interface Usuario {
   id: string;
@@ -10,7 +10,18 @@ interface Usuario {
   email: string;
   rol: string;
   fechaAlta: any;
+  estado?: 'pendiente' | 'activo' | string;
+  preRegistroId?: string;
 }
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const formatFecha = (fecha: any) => {
+  if (!fecha) return '-';
+  if (typeof fecha.toDate === 'function') return fecha.toDate().toLocaleDateString();
+  if (fecha.seconds) return new Date(fecha.seconds * 1000).toLocaleDateString();
+  return new Date(fecha).toLocaleDateString();
+};
 
 export default function UsuariosPage() {
   const { userData } = useAuth();
@@ -53,21 +64,46 @@ export default function UsuariosPage() {
     }
   };
 
+  const handleDeleteUser = async (usuario: Usuario) => {
+    if (!userData || usuario.email === userData.email) return;
+
+    const confirmed = window.confirm(`Eliminar el acceso de ${usuario.email}?`);
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'usuarios', usuario.id));
+      await addDoc(collection(db, 'auditoria'), {
+        usuarioId: userData.uid,
+        usuarioEmail: userData.email,
+        accion: 'usuario.eliminar',
+        entidadId: usuario.id,
+        detalle: `Usuario eliminado: ${usuario.email}`,
+        fecha: new Date()
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userData) return;
     setSubmitting(true);
     try {
-      const newDoc = await addDoc(collection(db, 'usuarios'), {
-        ...newForm,
+      const normalizedEmail = normalizeEmail(newForm.email);
+      await setDoc(doc(db, 'usuarios', normalizedEmail), {
+        nombre: newForm.nombre.trim(),
+        email: normalizedEmail,
+        rol: newForm.rol,
+        estado: 'pendiente',
         fechaAlta: new Date()
-      });
+      }, { merge: true });
       await addDoc(collection(db, 'auditoria'), {
         usuarioId: userData.uid,
         usuarioEmail: userData.email,
         accion: 'usuario.crear',
-        entidadId: newDoc.id,
-        detalle: `Usuario pre-creado: ${newForm.email} con rol ${newForm.rol}`,
+        entidadId: normalizedEmail,
+        detalle: `Usuario pre-creado: ${normalizedEmail} con rol ${newForm.rol}`,
         fecha: new Date()
       });
       setShowModal(false);
@@ -91,6 +127,16 @@ export default function UsuariosPage() {
     );
   }
 
+  const activeEmails = new Set(
+    usuarios
+      .filter(usuario => usuario.estado === 'activo')
+      .map(usuario => normalizeEmail(usuario.email || ''))
+  );
+  const visibleUsuarios = usuarios.filter(usuario => {
+    const email = normalizeEmail(usuario.email || '');
+    return usuario.estado === 'activo' || !activeEmails.has(email);
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -111,15 +157,26 @@ export default function UsuariosPage() {
               <tr className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                 <th className="p-4 text-sm font-semibold text-gray-900 dark:text-white">Nombre</th>
                 <th className="p-4 text-sm font-semibold text-gray-900 dark:text-white">Email</th>
+                <th className="p-4 text-sm font-semibold text-gray-900 dark:text-white">Estado</th>
                 <th className="p-4 text-sm font-semibold text-gray-900 dark:text-white">Rol</th>
                 <th className="p-4 text-sm font-semibold text-gray-900 dark:text-white">Fecha de Alta</th>
+                <th className="p-4 text-sm font-semibold text-gray-900 dark:text-white">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {usuarios.map(user => (
+              {visibleUsuarios.map(user => (
                 <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-750">
                   <td className="p-4 text-sm font-medium text-gray-900 dark:text-white">{user.nombre}</td>
                   <td className="p-4 text-sm text-gray-600 dark:text-gray-300">{user.email}</td>
+                  <td className="p-4 text-sm">
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                      user.estado === 'activo'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+                    }`}>
+                      {user.estado === 'activo' ? 'Activo' : 'Pendiente'}
+                    </span>
+                  </td>
                   <td className="p-4 text-sm">
                     <select 
                       value={user.rol}
@@ -133,7 +190,18 @@ export default function UsuariosPage() {
                     </select>
                   </td>
                   <td className="p-4 text-sm text-gray-500 dark:text-gray-400">
-                    {user.fechaAlta && new Date(user.fechaAlta?.seconds * 1000).toLocaleDateString()}
+                    {formatFecha(user.fechaAlta)}
+                  </td>
+                  <td className="p-4 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteUser(user)}
+                      disabled={user.email === userData.email}
+                      className="rounded p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400 dark:hover:bg-red-900/20"
+                      title="Eliminar usuario"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
