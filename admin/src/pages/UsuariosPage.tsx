@@ -23,6 +23,14 @@ const formatFecha = (fecha: any) => {
   return new Date(fecha).toLocaleDateString();
 };
 
+const getEstadoUsuario = (usuario: Usuario, currentUserEmail?: string) => {
+  if (usuario.estado === 'activo' || normalizeEmail(usuario.email || '') === normalizeEmail(currentUserEmail || '')) {
+    return 'activo';
+  }
+
+  return 'pendiente';
+};
+
 export default function UsuariosPage() {
   const { userData } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -129,12 +137,12 @@ export default function UsuariosPage() {
 
   const activeEmails = new Set(
     usuarios
-      .filter(usuario => usuario.estado === 'activo')
+      .filter(usuario => getEstadoUsuario(usuario, userData.email) === 'activo')
       .map(usuario => normalizeEmail(usuario.email || ''))
   );
   const visibleUsuarios = usuarios.filter(usuario => {
     const email = normalizeEmail(usuario.email || '');
-    return usuario.estado === 'activo' || !activeEmails.has(email);
+    return getEstadoUsuario(usuario, userData.email) === 'activo' || !activeEmails.has(email);
   });
 
   return (
@@ -170,11 +178,11 @@ export default function UsuariosPage() {
                   <td className="p-4 text-sm text-gray-600 dark:text-gray-300">{user.email}</td>
                   <td className="p-4 text-sm">
                     <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                      user.estado === 'activo'
+                      getEstadoUsuario(user, userData.email) === 'activo'
                         ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
                         : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
                     }`}>
-                      {user.estado === 'activo' ? 'Activo' : 'Pendiente'}
+                      {getEstadoUsuario(user, userData.email) === 'activo' ? 'Activo' : 'Pendiente'}
                     </span>
                   </td>
                   <td className="p-4 text-sm">
